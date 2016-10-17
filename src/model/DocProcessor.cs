@@ -15,34 +15,40 @@ namespace zFormat.model
 {
     class DocProcessor
     {
-        // Process the document, one paragraph at a time
+        // Process the actual document, one paragraph at a time
         public static void processDoc(FileInfo newDoc)
         {
             using (WordprocessingDocument doc = WordprocessingDocument.Open(newDoc.FullName, true))
             {
 
-                List<int> paragraphList = new List<int>();
-                var paragraphs = zFormat.model.SearchAndReplace.paraCount;
-                var pChapter = zFormat.model.SearchAndReplace.chapElement.Distinct().ToList();
+                var docBody = doc.MainDocumentPart.Document.Body;
+                var paragraphs = zFormat.model.GetMetrics.paraCount;
+                //var pChapter = zFormat.model.SearchAndReplace.chapElement.Distinct().ToList();
 
-                int c = 0;
+
+                int c = 1;
                 for (var i = 0; i < paragraphs; i++)
                 {
-                    if (pChapter.Contains(i))
+                    if (docBody.Descendants<Paragraph>().ElementAtOrDefault(i) != null)
                     {
-                        // Paragraph number for Chapter headings
-                        Paragraph p = doc.MainDocumentPart.Document.Body.Descendants<Paragraph>().ElementAtOrDefault(pChapter[c]);
-                        zFormat.model.StylesMaster.ApplyStyleToParagraph(doc, "zHeading", "zHeading", p);
-                        // Call function to check for page break before chapter heading
-                        checkForPageBreak(doc, p, pChapter[c]);
-                        c++;
-                    }
-                    else
-                    {
-                        if (doc.MainDocumentPart.Document.Body.Descendants<Paragraph>().ElementAtOrDefault(i) != null)
+                        Paragraph p = docBody.Descendants<Paragraph>().ElementAt(i);
+                        var eleText = docBody.Descendants<Paragraph>().ElementAtOrDefault(i).InnerText;
+                        if (eleText == "Chapter " + c)
                         {
-                            Paragraph p = doc.MainDocumentPart.Document.Body.Descendants<Paragraph>().ElementAt(i);
+                            // Paragraph number for Chapter headings
+                            zFormat.model.StylesMaster.ApplyStyleToParagraph(doc, "zHeading", "zHeading", p);
+                            // Call function to check for page break before chapter heading
+                            zFormat.model.PageControls.checkForPageBreak(doc, p, i);
+                            // At start of chapter, check for no ind -- fix if needed
+                            //zFormat.model.PageControls.checkForIndent(doc, i, "N");
+                            c++;
+                        }
+                        else
+                        {
+                            // Set appropriate style to docBody
                             zFormat.model.StylesMaster.ApplyStyleToParagraph(doc, "zNormal", "zNormal", p);
+                            // At start of chapter, check for no ind -- fix if needed
+                            zFormat.model.PageControls.checkForIndent(doc, i, "Y");
                         }
                     }
                 }
@@ -53,33 +59,7 @@ namespace zFormat.model
         }
 
 
-        public static void checkForPageBreak(WordprocessingDocument wDoc, Paragraph para, int e)
-        {
-            var runs = new List<Run>();            
-                //runs = para.OfType<Run>()
-                //    .Where(W.lastRenderedPageBreak).ToList();
-                //    r.RunProperties.RunStyle.Val.Value.Contains("lastRenderedPageBreak") ||      
-                //var zTest = runs[0].LocalName;
-
-
-            var zTemp = para.OuterXml;
-            var wordText = para.InnerText;
-            var pageBreak = Regex.Match(zTemp, "w:lastRenderedPageBreak");
-
-                
-
-
-
-            var xDoc = wDoc.MainDocumentPart.GetXDocument();
-            IEnumerable<XElement> content;
-
-            // Match content from prargraphProperties
-            content = xDoc.Descendants(W.p);
-            //var pageBreak = content.Elements(W.r).Elements(W.lastRenderedPageBreak);
-
-            
-        }
-
+        
 
     }
 }

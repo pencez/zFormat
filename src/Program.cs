@@ -12,8 +12,6 @@ namespace zFormat
         static string testDocx = @"C:\VS_Projects\Test\Test2.docx";
         static string author = "Zach Pence";
         static string initials = "ZP";
-        //static string strCmmnt = "Custom comment from me -- ZP!";
-        //static string strTxt = "Append text in body by me -- ZP!";
 
         static void Main(string[] args)
         {
@@ -29,16 +27,16 @@ namespace zFormat
             File.Copy(sourceDoc.FullName, newDoc.FullName);
 
             
-            //run SearchAndReplace function
-            zFormat.model.SearchAndReplace.contentVitals(newDoc);
+            //run metrics report function
+            zFormat.model.GetMetrics.contentVitals(newDoc);
 
             //run bold, italics and underlines function
             //zFormat.model.ConvertItalicAndBoldText.ConvertProc(newDoc);
-
             //zFormat.model.FontMaster.SetRunFont(newDoc);
-
             //zFormat.model.StylesMaster.ExtractStylesPart(newDoc.FullName, false);
+
             zFormat.model.DocProcessor.processDoc(newDoc);
+            zFormat.model.HeadersFooters.beginProc(newDoc);
 
             Console.WriteLine("*** All Done! ***");
             Console.ReadLine();

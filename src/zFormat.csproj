@@ -57,7 +57,10 @@
     <Compile Include="model\ConvertItalicAndBoldText.cs" />
     <Compile Include="model\DocProcessor.cs" />
     <Compile Include="model\FontMaster.cs" />
-    <Compile Include="model\SearchAndReplace.cs" />
+    <Compile Include="model\HeadersFooters.cs" />
+    <Compile Include="model\headers\Option1.cs" />
+    <Compile Include="model\PageControls.cs" />
+    <Compile Include="model\GetMetrics.cs" />
     <Compile Include="model\StylesMaster.cs" />
     <Compile Include="Program.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
