@@ -64,6 +64,7 @@
     <Compile Include="model\headers\Option1.cs" />
     <Compile Include="model\PageControls.cs" />
     <Compile Include="model\GetMetrics.cs" />
+    <Compile Include="model\headers\SectionsMaster.cs" />
     <Compile Include="model\StylesMaster.cs" />
     <Compile Include="Program.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />

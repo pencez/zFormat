@@ -12,6 +12,7 @@ using DocumentFormat.OpenXml.Wordprocessing;
 using OpenXmlPowerTools;
 using Ovml = DocumentFormat.OpenXml.Vml.Office;
 using V = DocumentFormat.OpenXml.Vml;
+using zFormat.model.headers;
 
 namespace zFormat.model
 {
@@ -33,6 +34,17 @@ namespace zFormat.model
              */
             string hfOption = "option1";
             string pageNumLocation = "footer";
+            string numberAllPagesYN = "Y";  // No = chapter starts w/o page number; Yes = all pages numbered
+
+            if (numberAllPagesYN == "N")
+            {
+                //remove existing section breaks
+                zFormat.model.headers.SectionsMaster.RemoveSectionBreaks(newDoc.FullName);
+                //build section breaks
+                zFormat.model.headers.SectionsMaster.CreateSectionBreaks(newDoc.FullName);
+
+            }
+
 
             processHeader(newDoc, bookTitle, bookAuthor, hfOption);
             if (pageNumLocation == "footer")
