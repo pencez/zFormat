@@ -23,7 +23,7 @@ namespace zFormat.model
         // To search and track content vital stats
         public static void contentVitals(FileInfo newDoc)
         {
-            
+
             /*
             var n = DateTime.Now;
             //var tempDi = new DirectoryInfo(string.Format("ExampleOutput-{0:00}-{1:00}-{2:00}-{3:00}{4:00}{5:00}", n.Year - 2000, n.Month, n.Day, n.Hour, n.Minute, n.Second));
@@ -36,20 +36,25 @@ namespace zFormat.model
             File.Copy(sourceDoc.FullName, newDoc.FullName);
             */
 
-                       
+
             using (WordprocessingDocument wDoc = WordprocessingDocument.Open(newDoc.FullName, true))
             {
                 var xDoc = wDoc.MainDocumentPart.GetXDocument();
                 Regex regex;
-                IEnumerable<XElement> content;                
+                IEnumerable<XElement> content;
                 content = xDoc.Descendants(W.p);
 
                 // Count number of pages
                 var pageCount = wDoc.ExtendedFilePropertiesPart.Properties.Pages.InnerText.ToString();
-                
+
                 // Count chapters
-                regex = new Regex("^Chapter");  //case-specific
-                chapCount = OpenXmlRegex.Match(content, regex);
+                chapCount = 1;
+                foreach (var element in wDoc.MainDocumentPart.Document.Body) {
+                    if (element.InnerXml.IndexOf("<w:br w:type=\"page\" />") != -1)
+                    {
+                        chapCount++;
+                    }
+                }
 
                 // Count paragraphs
                 regex = new Regex("[.]\x020+");

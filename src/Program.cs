@@ -9,7 +9,7 @@ namespace zFormat
 {
     class Program
     {
-        static string testDocx = @"C:\VS_Projects\Test\Test2.docx";
+        static string testDocx = @"C:\Temp\ebook\GOSH_zTest.docx";
         //static string testDocx = @"C:\VS_Projects\Test\BigTest.docx";
 
         static void Main(string[] args)

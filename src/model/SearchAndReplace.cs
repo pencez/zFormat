@@ -4,111 +4,412 @@ using System.IO;
 using System.Linq;
 using System.Text;
 using System.Text.RegularExpressions;
-using System.Threading.Tasks;
-using System.Xml.Linq;
 using System.Xml;
+using System.Xml.Linq;
 using DocumentFormat.OpenXml.Packaging;
-using DocumentFormat.OpenXml.Wordprocessing;
-using OpenXmlPowerTools;
 
-namespace zFormat.model
+namespace OpenXmlPowerTools
 {
-    class SearchAndReplace
+    class SearchAndReplacer
     {
-        public static int paraCount = 0;
-        public static int chapCount = 0;
-        public static List<int> chapElement = new List<int>();
-
-
-        // To search and track content vital stats
-        public static void contentVitals(FileInfo newDoc)
+        public static XmlDocument GetXmlDocument(OpenXmlPart part)
         {
-            
-            /*
-            var n = DateTime.Now;
-            //var tempDi = new DirectoryInfo(string.Format("ExampleOutput-{0:00}-{1:00}-{2:00}-{3:00}{4:00}{5:00}", n.Year - 2000, n.Month, n.Day, n.Hour, n.Minute, n.Second));
-            var tempDi = new DirectoryInfo(string.Format("ExampleOutput"));
-            bool exists = System.IO.Directory.Exists("ExampleOutput");
-            if (!exists) { tempDi.Create(); }
-
-            var sourceDoc = new FileInfo(document);
-            var newDoc = new FileInfo(Path.Combine(tempDi.FullName, "z_" + DateTime.Now.Ticks + "_" + sourceDoc.Name));
-            File.Copy(sourceDoc.FullName, newDoc.FullName);
-            */
-
-                       
-            using (WordprocessingDocument wDoc = WordprocessingDocument.Open(newDoc.FullName, true))
-            {
-                var xDoc = wDoc.MainDocumentPart.GetXDocument();
-                Regex regex;
-                IEnumerable<XElement> content;                
-                content = xDoc.Descendants(W.p);
-
-                // Count number of pages
-                var pageCount = wDoc.ExtendedFilePropertiesPart.Properties.Pages.InnerText.ToString();
-                
-                // Count chapters
-                regex = new Regex("^Chapter");  //case-specific
-                chapCount = OpenXmlRegex.Match(content, regex);
-
-                // Count paragraphs
-                regex = new Regex("[.]\x020+");
-                paraCount = OpenXmlRegex.Replace(content, regex, "." + Environment.NewLine, null);
-                // Set paragraphs in doc
-                int i = 0;
-                foreach (var para in content)
-                {
-                    var newPara = (XElement)TransformEnvironmentNewLineToParagraph(para, i);
-                    para.ReplaceNodes(newPara.Nodes());
-                    i++;
-                }
-                wDoc.MainDocumentPart.PutXDocument();
-
-                // Count underlines, bold and italics
-                var underlines = content.Elements(W.r).Elements(W.rPr).Elements(W.u).Attributes(W.val);
-                var boldness = content.Elements(W.r).Elements(W.rPr).Elements(W.b);
-                var italics = content.Elements(W.r).Elements(W.rPr).Elements(W.i);
-                var uCount = underlines.Count();
-                var bCount = boldness.Count();
-                var iCount = italics.Count();
-
-                Console.WriteLine("Page Count: " + pageCount);
-                Console.WriteLine("Chapter Count: {0}", chapCount);
-                Console.WriteLine("Paragraph Count: {0}", paraCount);
-                Console.WriteLine("Underlines Count: {0}", uCount);
-                Console.WriteLine("Boldness Count: {0}", bCount);
-                Console.WriteLine("Italics Count: {0}", iCount);
-                chapElement.Distinct().ToList().ForEach(Console.WriteLine);
-                //chapElement.ForEach(Console.WriteLine);
-
-                wDoc.Close();
-                // Call to get Style counts and names
-                zFormat.model.StylesMaster.getStylesInfo(newDoc);
-
-            }      
-        
+            XmlDocument xmlDoc = new XmlDocument();
+            using (Stream partStream = part.GetStream())
+            using (XmlReader partXmlReader = XmlReader.Create(partStream))
+                xmlDoc.Load(partXmlReader);
+            return xmlDoc;
         }
 
-        private static object TransformEnvironmentNewLineToParagraph(XNode node, int ele)
+        public static void PutXmlDocument(OpenXmlPart part, XmlDocument xmlDoc)
         {
-            var element = node as XElement;
-            if (element != null)
+            using (Stream partStream = part.GetStream(FileMode.Create, FileAccess.Write))
+            using (XmlWriter partXmlWriter = XmlWriter.Create(partStream))
+                xmlDoc.Save(partXmlWriter);
+        }
+
+        static void SearchAndReplaceInParagraph(XmlElement paragraph, string search,
+            string replace, bool matchCase)
+        {
+            XmlDocument xmlDoc = paragraph.OwnerDocument;
+            string wordNamespace =
+                "http://schemas.openxmlformats.org/wordprocessingml/2006/main";
+            XmlNamespaceManager nsmgr =
+                new XmlNamespaceManager(xmlDoc.NameTable);
+            nsmgr.AddNamespace("w", wordNamespace);
+            XmlNodeList paragraphText = paragraph.SelectNodes("descendant::w:t", nsmgr);
+            StringBuilder sb = new StringBuilder();
+            foreach (XmlNode text in paragraphText)
+                sb.Append(((XmlElement)text).InnerText);
+            if (sb.ToString().Contains(search) ||
+                (!matchCase && sb.ToString().ToUpper().Contains(search.ToUpper())))
             {
-                if (element.Value.Length >= 7)
+                XmlNodeList runs = paragraph.SelectNodes("child::w:r", nsmgr);
+                foreach (XmlElement run in runs)
                 {
-                    if (element.Value.Substring(0, 7) == "Chapter")
+                    XmlNodeList childElements = run.SelectNodes("child::*", nsmgr);
+                    if (childElements.Count > 0)
                     {
-                        chapElement.Add(ele);
+                        XmlElement last = (XmlElement)childElements[childElements.Count - 1];
+                        for (int c = childElements.Count - 1; c >= 0; --c)
+                        {
+                            if (childElements[c].Name == "w:rPr")
+                                continue;
+                            if (childElements[c].Name == "w:t")
+                            {
+                                string textElementString = childElements[c].InnerText;
+                                for (int i = textElementString.Length - 1; i >= 0; --i)
+                                {
+                                    XmlElement newRun =
+                                        xmlDoc.CreateElement("w:r", wordNamespace);
+                                    XmlElement runProps =
+                                        (XmlElement)run.SelectSingleNode("child::w:rPr", nsmgr);
+                                    if (runProps != null)
+                                    {
+                                        XmlElement newRunProps =
+                                            (XmlElement)runProps.CloneNode(true);
+                                        newRun.AppendChild(newRunProps);
+                                    }
+                                    XmlElement newTextElement =
+                                        xmlDoc.CreateElement("w:t", wordNamespace);
+                                    XmlText newText =
+                                        xmlDoc.CreateTextNode(textElementString[i].ToString());
+                                    newTextElement.AppendChild(newText);
+                                    if (textElementString[i] == ' ')
+                                    {
+                                        XmlAttribute xmlSpace = xmlDoc.CreateAttribute(
+                                            "xml", "space",
+                                            "http://www.w3.org/XML/1998/namespace");
+                                        xmlSpace.Value = "preserve";
+                                        newTextElement.Attributes.Append(xmlSpace);
+                                    }
+                                    newRun.AppendChild(newTextElement);
+                                    paragraph.InsertAfter(newRun, run);
+                                }
+                            }
+                            else
+                            {
+                                XmlElement newRun = xmlDoc.CreateElement("w:r", wordNamespace);
+                                XmlElement runProps =
+                                    (XmlElement)run.SelectSingleNode("child::w:rPr", nsmgr);
+                                if (runProps != null)
+                                {
+                                    XmlElement newRunProps =
+                                        (XmlElement)runProps.CloneNode(true);
+                                    newRun.AppendChild(newRunProps);
+                                }
+                                XmlElement newChildElement =
+                                    (XmlElement)childElements[c].CloneNode(true);
+                                newRun.AppendChild(newChildElement);
+                                paragraph.InsertAfter(newRun, run);
+                            }
+                        }
+                        paragraph.RemoveChild(run);
                     }
                 }
-                
-                return new XElement(element.Name,
-                    element.Attributes(),
-                    element.Nodes().Select(n => TransformEnvironmentNewLineToParagraph(n, ele)));
 
+                while (true)
+                {
+                    bool cont = false;
+                    runs = paragraph.SelectNodes("child::w:r", nsmgr);
+                    for (int i = 0; i <= runs.Count - search.Length; ++i)
+                    {
+                        bool match = true;
+                        for (int c = 0; c < search.Length; ++c)
+                        {
+                            XmlElement textElement =
+                                (XmlElement)runs[i + c].SelectSingleNode("child::w:t", nsmgr);
+                            if (textElement == null)
+                            {
+                                match = false;
+                                break;
+                            }
+                            if (textElement.InnerText == search[c].ToString())
+                                continue;
+                            if (!matchCase &&
+                                textElement.InnerText.ToUpper() == search[c].ToString().ToUpper())
+                                continue;
+                            match = false;
+                            break;
+                        }
+                        if (match)
+                        {
+                            XmlElement runProps =
+                                (XmlElement)runs[i].SelectSingleNode("descendant::w:rPr", nsmgr);
+                            XmlElement newRun = xmlDoc.CreateElement("w:r", wordNamespace);
+                            if (runProps != null)
+                            {
+                                XmlElement newRunProps = (XmlElement)runProps.CloneNode(true);
+                                newRun.AppendChild(newRunProps);
+                            }
+                            XmlElement newTextElement =
+                                xmlDoc.CreateElement("w:t", wordNamespace);
+                            XmlText newText = xmlDoc.CreateTextNode(replace);
+                            newTextElement.AppendChild(newText);
+                            if (replace[0] == ' ' || replace[replace.Length - 1] == ' ')
+                            {
+                                XmlAttribute xmlSpace = xmlDoc.CreateAttribute("xml", "space",
+                                    "http://www.w3.org/XML/1998/namespace");
+                                xmlSpace.Value = "preserve";
+                                newTextElement.Attributes.Append(xmlSpace);
+                            }
+                            newRun.AppendChild(newTextElement);
+                            paragraph.InsertAfter(newRun, (XmlNode)runs[i]);
+                            for (int c = 0; c < search.Length; ++c)
+                                paragraph.RemoveChild(runs[i + c]);
+                            cont = true;
+                            break;
+                        }
+                    }
+                    if (!cont)
+                        break;
+                }
+
+                // Consolidate adjacent runs that have only text elements, and have the
+                // same run properties. This isn't necessary to create a valid document,
+                // however, having the split runs is a bit messy.
+                XmlNodeList children = paragraph.SelectNodes("child::*", nsmgr);
+                List<int> matchId = new List<int>();
+                int id = 0;
+                for (int c = 0; c < children.Count; ++c)
+                {
+                    if (c == 0)
+                    {
+                        matchId.Add(id);
+                        continue;
+                    }
+                    if (children[c].Name == "w:r" &&
+                        children[c - 1].Name == "w:r" &&
+                        children[c].SelectSingleNode("w:t", nsmgr) != null &&
+                        children[c - 1].SelectSingleNode("w:t", nsmgr) != null)
+                    {
+                        XmlElement runProps =
+                            (XmlElement)children[c].SelectSingleNode("w:rPr", nsmgr);
+                        XmlElement lastRunProps =
+                            (XmlElement)children[c - 1].SelectSingleNode("w:rPr", nsmgr);
+                        if ((runProps == null && lastRunProps != null) ||
+                            (runProps != null && lastRunProps == null))
+                        {
+                            matchId.Add(++id);
+                            continue;
+                        }
+                        if (runProps != null && runProps.InnerXml != lastRunProps.InnerXml)
+                        {
+                            matchId.Add(++id);
+                            continue;
+                        }
+                        matchId.Add(id);
+                        continue;
+                    }
+                    matchId.Add(++id);
+                }
+
+                for (int i = 0; i <= id; ++i)
+                {
+                    var x1 = matchId.IndexOf(i);
+                    var x2 = matchId.LastIndexOf(i);
+                    if (x1 == x2)
+                        continue;
+                    StringBuilder sb2 = new StringBuilder();
+                    for (int z = x1; z <= x2; ++z)
+                        sb2.Append(((XmlElement)children[z]
+                            .SelectSingleNode("w:t", nsmgr)).InnerText);
+                    XmlElement newRun = xmlDoc.CreateElement("w:r", wordNamespace);
+                    XmlElement runProps =
+                        (XmlElement)children[x1].SelectSingleNode("child::w:rPr", nsmgr);
+                    if (runProps != null)
+                    {
+                        XmlElement newRunProps = (XmlElement)runProps.CloneNode(true);
+                        newRun.AppendChild(newRunProps);
+                    }
+                    XmlElement newTextElement = xmlDoc.CreateElement("w:t", wordNamespace);
+                    XmlText newText = xmlDoc.CreateTextNode(sb2.ToString());
+                    newTextElement.AppendChild(newText);
+                    if (sb2[0] == ' ' || sb2[sb2.Length - 1] == ' ')
+                    {
+                        XmlAttribute xmlSpace = xmlDoc.CreateAttribute(
+                            "xml", "space", "http://www.w3.org/XML/1998/namespace");
+                        xmlSpace.Value = "preserve";
+                        newTextElement.Attributes.Append(xmlSpace);
+                    }
+                    newRun.AppendChild(newTextElement);
+                    paragraph.InsertAfter(newRun, children[x2]);
+                    for (int z = x1; z <= x2; ++z)
+                        paragraph.RemoveChild(children[z]);
+                }
+
+                var txbxParagraphs = paragraph.SelectNodes("descendant::w:p", nsmgr);
+                foreach (XmlElement p in txbxParagraphs)
+                    SearchAndReplaceInParagraph((XmlElement)p, search, replace, matchCase);
             }
-            return node;
         }
 
+        public static bool PartHasTrackedRevisions(OpenXmlPart part)
+        {
+            XmlDocument doc = GetXmlDocument(part);
+            string wordNamespace =
+                "http://schemas.openxmlformats.org/wordprocessingml/2006/main";
+            XmlNamespaceManager nsmgr =
+                new XmlNamespaceManager(doc.NameTable);
+            nsmgr.AddNamespace("w", wordNamespace);
+            string xpathExpression =
+                "descendant::w:cellDel|" +
+                "descendant::w:cellIns|" +
+                "descendant::w:cellMerge|" +
+                "descendant::w:customXmlDelRangeEnd|" +
+                "descendant::w:customXmlDelRangeStart|" +
+                "descendant::w:customXmlInsRangeEnd|" +
+                "descendant::w:customXmlInsRangeStart|" +
+                "descendant::w:del|" +
+                "descendant::w:delInstrText|" +
+                "descendant::w:delText|" +
+                "descendant::w:ins|" +
+                "descendant::w:moveFrom|" +
+                "descendant::w:moveFromRangeEnd|" +
+                "descendant::w:moveFromRangeStart|" +
+                "descendant::w:moveTo|" +
+                "descendant::w:moveToRangeEnd|" +
+                "descendant::w:moveToRangeStart|" +
+                "descendant::w:moveTo|" +
+                "descendant::w:numberingChange|" +
+                "descendant::w:rPrChange|" +
+                "descendant::w:pPrChange|" +
+                "descendant::w:rPrChange|" +
+                "descendant::w:sectPrChange|" +
+                "descendant::w:tcPrChange|" +
+                "descendant::w:tblGridChange|" +
+                "descendant::w:tblPrChange|" +
+                "descendant::w:tblPrExChange|" +
+                "descendant::w:trPrChange";
+            XmlNodeList descendants = doc.SelectNodes(xpathExpression, nsmgr);
+            return descendants.Count > 0;
+        }
+
+        public static bool HasTrackedRevisions(WordprocessingDocument doc)
+        {
+            if (PartHasTrackedRevisions(doc.MainDocumentPart))
+                return true;
+            foreach (var part in doc.MainDocumentPart.HeaderParts)
+                if (PartHasTrackedRevisions(part))
+                    return true;
+            foreach (var part in doc.MainDocumentPart.FooterParts)
+                if (PartHasTrackedRevisions(part))
+                    return true;
+            if (doc.MainDocumentPart.EndnotesPart != null)
+                if (PartHasTrackedRevisions(doc.MainDocumentPart.EndnotesPart))
+                    return true;
+            if (doc.MainDocumentPart.FootnotesPart != null)
+                if (PartHasTrackedRevisions(doc.MainDocumentPart.FootnotesPart))
+                    return true;
+            return false;
+        }
+
+        private static void SearchAndReplaceInXmlDocument(XmlDocument xmlDocument, string search,
+            string replace, bool matchCase)
+        {
+            XmlNamespaceManager nsmgr = new XmlNamespaceManager(xmlDocument.NameTable);
+            nsmgr.AddNamespace("w",
+                "http://schemas.openxmlformats.org/wordprocessingml/2006/main");
+            var paragraphs = xmlDocument.SelectNodes("descendant::w:p", nsmgr);
+            foreach (var paragraph in paragraphs)
+                SearchAndReplaceInParagraph((XmlElement)paragraph, search, replace, matchCase);
+        }
+
+        public static void SearchAndReplace(WordprocessingDocument wordDoc, string search,
+            string replace, bool matchCase)
+        {
+            if (HasTrackedRevisions(wordDoc))
+                throw new SearchAndReplaceException(
+                    "Search and replace will not work with documents " +
+                    "that contain revision tracking.");
+
+            XmlDocument xmlDoc;
+            xmlDoc = GetXmlDocument(wordDoc.MainDocumentPart.DocumentSettingsPart);
+            XmlNamespaceManager nsmgr = new XmlNamespaceManager(xmlDoc.NameTable);
+            nsmgr.AddNamespace("w",
+                "http://schemas.openxmlformats.org/wordprocessingml/2006/main");
+            XmlNodeList trackedRevisions =
+                xmlDoc.SelectNodes("descendant::w:trackRevisions", nsmgr);
+            if (trackedRevisions.Count > 0)
+                throw new SearchAndReplaceException(
+                    "Revision tracking is turned on for document.");
+
+            xmlDoc = GetXmlDocument(wordDoc.MainDocumentPart);
+            SearchAndReplaceInXmlDocument(xmlDoc, search, replace, matchCase);
+            PutXmlDocument(wordDoc.MainDocumentPart, xmlDoc);
+            foreach (var part in wordDoc.MainDocumentPart.HeaderParts)
+            {
+                xmlDoc = GetXmlDocument(part);
+                SearchAndReplaceInXmlDocument(xmlDoc, search, replace, matchCase);
+                PutXmlDocument(part, xmlDoc);
+            }
+            foreach (var part in wordDoc.MainDocumentPart.FooterParts)
+            {
+                xmlDoc = GetXmlDocument(part);
+                SearchAndReplaceInXmlDocument(xmlDoc, search, replace, matchCase);
+                PutXmlDocument(part, xmlDoc);
+            }
+            if (wordDoc.MainDocumentPart.EndnotesPart != null)
+            {
+                xmlDoc = GetXmlDocument(wordDoc.MainDocumentPart.EndnotesPart);
+                SearchAndReplaceInXmlDocument(xmlDoc, search, replace, matchCase);
+                PutXmlDocument(wordDoc.MainDocumentPart.EndnotesPart, xmlDoc);
+            }
+            if (wordDoc.MainDocumentPart.FootnotesPart != null)
+            {
+                xmlDoc = GetXmlDocument(wordDoc.MainDocumentPart.FootnotesPart);
+                SearchAndReplaceInXmlDocument(xmlDoc, search, replace, matchCase);
+                PutXmlDocument(wordDoc.MainDocumentPart.FootnotesPart, xmlDoc);
+            }
+        }
+    }
+
+    public class SearchAndReplaceException : Exception
+    {
+        public SearchAndReplaceException(string message) : base(message) { }
+    }
+
+
+
+
+
+
+
+
+
+    public static class Extensions
+    {
+        public static string ToStringAlignAttributes(this XContainer xContainer)
+        {
+            XmlWriterSettings settings = new XmlWriterSettings();
+            settings.Indent = true;
+            settings.OmitXmlDeclaration = true;
+            settings.NewLineOnAttributes = true;
+            StringBuilder sb = new StringBuilder();
+            using (XmlWriter xmlWriter = XmlWriter.Create(sb, settings))
+                xContainer.WriteTo(xmlWriter);
+            return sb.ToString();
+        }
+
+        public static XDocument GetXDocument(this XmlDocument document)
+        {
+            XDocument xDoc = new XDocument();
+            using (XmlWriter xmlWriter = xDoc.CreateWriter())
+                document.WriteTo(xmlWriter);
+            XmlDeclaration decl =
+                document.ChildNodes.OfType<XmlDeclaration>().FirstOrDefault();
+            if (decl != null)
+                xDoc.Declaration = new XDeclaration(decl.Version, decl.Encoding,
+                    decl.Standalone);
+            return xDoc;
+        }
+
+        public static XElement GetXElement(this XmlNode node)
+        {
+            XDocument xDoc = new XDocument();
+            using (XmlWriter xmlWriter = xDoc.CreateWriter())
+                node.WriteTo(xmlWriter);
+            return xDoc.Root;
+        }
     }
 }
