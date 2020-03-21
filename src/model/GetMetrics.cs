@@ -45,7 +45,8 @@ namespace zFormat.model
                 content = xDoc.Descendants(W.p);
 
                 // Count number of pages
-                var pageCount = wDoc.ExtendedFilePropertiesPart.Properties.Pages.InnerText.ToString();
+                //var pageCount = wDoc.ExtendedFilePropertiesPart.Properties.Pages.InnerText.ToString();
+                //var pageCount = wDoc.ExtendedFilePropertiesPart.Properties.Pages.Text.ToString();
 
                 // Count chapters
                 chapCount = 1;
@@ -77,18 +78,18 @@ namespace zFormat.model
                 var bCount = boldness.Count();
                 var iCount = italics.Count();
 
-                Console.WriteLine("Page Count: " + pageCount);
+                //Console.WriteLine("Page Count: " + pageCount);
                 Console.WriteLine("Chapter Count: {0}", chapCount);
                 Console.WriteLine("Paragraph Count: {0}", paraCount);
                 Console.WriteLine("Underlines Count: {0}", uCount);
                 Console.WriteLine("Boldness Count: {0}", bCount);
                 Console.WriteLine("Italics Count: {0}", iCount);
-                chapElement.Distinct().ToList().ForEach(Console.WriteLine);
+                //chapElement.Distinct().ToList().ForEach(Console.WriteLine);
                 //chapElement.ForEach(Console.WriteLine);
 
                 wDoc.Close();
                 // Call to get Style counts and names
-                zFormat.model.StylesMaster.getStylesInfo(newDoc);
+                //zFormat.model.StylesMaster.getStylesInfo(newDoc);
 
             }      
         

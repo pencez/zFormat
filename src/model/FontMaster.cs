@@ -10,29 +10,115 @@ using System.Xml;
 using DocumentFormat.OpenXml.Packaging;
 using DocumentFormat.OpenXml.Wordprocessing;
 using OpenXmlPowerTools;
+using System.Windows;
 
 namespace zFormat.model
 {
     class FontMaster
     {
+
         // Set the font for a text run.
-        public static void SetRunFont(FileInfo fileName)
+        public static void GetFontList(FileInfo fileName)
         {
-            using (WordprocessingDocument package = WordprocessingDocument.Open(fileName.FullName, true))
+            using (WordprocessingDocument wDoc = WordprocessingDocument.Open(fileName.FullName, true))
             {
-                // Use an object initializer for RunProperties and rPr.
-                RunProperties rPr = new RunProperties(
-                    new RunFonts()
+                var fontList = wDoc.MainDocumentPart.FontTablePart.Fonts.Elements<Font>();
+                //.Select(
+                //       Function(c) If(c.Ascii.HasValue, c.Ascii.InnerText, String.Empty)).Distinct().ToList()
+
+                //fontList.AddRange(runFonts)
+                String theFonts = "";
+                foreach (var zfont in fontList)
+                {
+                    theFonts = theFonts + zfont.Name + ",";
+                }
+                theFonts = theFonts.TrimEnd(',');
+                Console.WriteLine("Fonts Used: {0}", theFonts);
+
+            }
+        }
+
+
+        // Set the font for a text headings.
+        public static void SetHeadFont(FileInfo fileName, String hFont)
+        {
+            using (WordprocessingDocument wDoc = WordprocessingDocument.Open(fileName.FullName, true))
+            {
+                Body body = wDoc.MainDocumentPart.Document.Body;
+                //Get all paragraphs
+                var lstParagrahps = body.Descendants<Paragraph>().ToList();
+                foreach (var para in lstParagrahps)
+                {
+                    var subRuns = para.Descendants<Run>().ToList();
+                    foreach (var run in subRuns)
                     {
-                        Ascii = "Arial"
-                    });
+                        if (run.InnerText.StartsWith("Chapter ") || run.InnerText.StartsWith("CHAPTER "))
+                        {
+                            var subRunProp = run.Descendants<RunProperties>().ToList().FirstOrDefault();
 
-                // Set the font to Arial to the first Run.
-                Run r = package.MainDocumentPart.Document.Descendants<Run>().First();
-                r.PrependChild<RunProperties>(rPr);
+                            var newFont = new RunFonts();
+                            newFont.Ascii = hFont;
+                            //newFont.EastAsia = hFont;
+                            newFont.HighAnsi = hFont;
+                            //newFont.ComplexScript = hFont;
 
-                // Save changes to the MainDocumentPart part.
-                package.MainDocumentPart.Document.Save();
+                            if (subRunProp != null)
+                            {
+                                var font = subRunProp.Descendants<RunFonts>().FirstOrDefault();
+                                subRunProp.ReplaceChild<RunFonts>(newFont, font);
+                            }
+                            else
+                            {
+                                var tmpSubRunProp = new RunProperties();
+                                tmpSubRunProp.AppendChild<RunFonts>(newFont);
+                                run.AppendChild<RunProperties>(tmpSubRunProp);
+                            }
+
+                        }
+                    }
+                }
+                wDoc.MainDocumentPart.Document.Save();
+                wDoc.Close();
+            }
+        }
+
+        // Set the font for a text run.
+        public static void SetRunFont(FileInfo fileName, String zFont)
+        {
+            using (WordprocessingDocument wDoc = WordprocessingDocument.Open(fileName.FullName, true))
+            {
+                Body body = wDoc.MainDocumentPart.Document.Body;
+                //Get all paragraphs
+                var lstParagrahps = body.Descendants<Paragraph>().ToList();
+                foreach (var para in lstParagrahps)
+                {
+                    var subRuns = para.Descendants<Run>().ToList();
+                    foreach (var run in subRuns)
+                    {
+                        var subRunProp = run.Descendants<RunProperties>().ToList().FirstOrDefault();
+
+                        var newFont = new RunFonts();
+                        newFont.Ascii = zFont;
+                        newFont.EastAsia = zFont;
+                        newFont.HighAnsi = zFont;
+                        newFont.ComplexScript = zFont;
+
+                        if (subRunProp != null)
+                        {
+                            var font = subRunProp.Descendants<RunFonts>().FirstOrDefault();
+                            subRunProp.ReplaceChild<RunFonts>(newFont, font);
+                        }
+                        else
+                        {
+                            var tmpSubRunProp = new RunProperties();
+                            tmpSubRunProp.AppendChild<RunFonts>(newFont);
+                            run.AppendChild<RunProperties>(tmpSubRunProp);
+                        }
+
+                    }
+                }
+                wDoc.MainDocumentPart.Document.Save();
+                wDoc.Close();
             }
         }
     }
