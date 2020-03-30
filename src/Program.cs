@@ -34,7 +34,7 @@ namespace zFormat
             //set the font for doc
             zFormat.model.FontMaster.SetRunFont(newDoc, "Georgia");
             //set the font for chapter headings
-            zFormat.model.FontMaster.SetHeadFont(newDoc, "Rockwell Extra Bold");
+            zFormat.model.FontMaster.SetTheChapterHeadingFont(newDoc, "Rockwell Extra Bold", "Georgia", "Yes");
 
 
 

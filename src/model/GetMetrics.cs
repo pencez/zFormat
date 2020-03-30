@@ -17,6 +17,7 @@ namespace zFormat.model
     {
         public static int paraCount = 0;
         public static int chapCount = 0;
+        public static int firstLine = 0;
         public static List<int> chapElement = new List<int>();
 
 
@@ -50,12 +51,14 @@ namespace zFormat.model
 
                 // Count chapters
                 chapCount = 1;
+                firstLine = 1;
                 foreach (var element in wDoc.MainDocumentPart.Document.Body) {
                     if (element.InnerXml.IndexOf("<w:br w:type=\"page\" />") != -1)
                     {
                         chapCount++;
-                    }
+                    }                   
                 }
+
 
                 // Count paragraphs
                 regex = new Regex("[.]\x020+");
@@ -80,6 +83,7 @@ namespace zFormat.model
 
                 //Console.WriteLine("Page Count: " + pageCount);
                 Console.WriteLine("Chapter Count: {0}", chapCount);
+                Console.WriteLine("FirstLine Count: {0}", firstLine);
                 Console.WriteLine("Paragraph Count: {0}", paraCount);
                 Console.WriteLine("Underlines Count: {0}", uCount);
                 Console.WriteLine("Boldness Count: {0}", bCount);
