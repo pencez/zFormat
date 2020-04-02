@@ -9,7 +9,9 @@ namespace zFormat
 {
     class Program
     {
-        static string testDocx = @"C:\Temp\ebook\oneoclock_small_zTest.docx";
+        
+        static string testDocx = @"C:\Temp\ebook\Ancient Illusions_basic.docx";
+        //static string testDocx = @"C:\Temp\ebook\oneoclock_small_zTest.docx";
         //static string testDocx = @"C:\Temp\ebook\GOSH_zTest.docx";
         //static string testDocx = @"C:\VS_Projects\Test\BigTest.docx";
 
@@ -35,8 +37,8 @@ namespace zFormat
             zFormat.model.FontMaster.SetRunFont(newDoc, "Georgia");
             //set the font for chapter headings
             zFormat.model.FontMaster.SetTheChapterHeadingFont(newDoc, "Rockwell Extra Bold", "Georgia", "Yes");
-
-
+            //set the subchapter styling
+            zFormat.model.FontMaster.SetSubChapterStyling(newDoc, "SUBCHAPTER");
 
             //Replace current font with Georgia font
             //DocumentFormat.OpenXml.Packaging.WordprocessingDocument wDoc = DocumentFormat.OpenXml.Packaging.WordprocessingDocument.Open(newDoc.FullName, true);
