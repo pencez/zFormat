@@ -134,7 +134,8 @@ namespace zFormat.model
                         if (SetCh1RunStyle == "Yes")
                         {
                             //Call special design options (Dropcap and ALLCAPS start run...)
-                            SetDropCap(body, para, run, bFont);
+                            //SetDropCap(body, para, run, bFont);
+                            SetAllCapsFirstWords(body, para, run, bFont);
                             SetCh1RunStyle = "No";
                         }
 
@@ -142,9 +143,12 @@ namespace zFormat.model
                         //<w:br w:type="page"/>
                         var theBr = run.Descendants<Break>().FirstOrDefault();
                         if (theBr != null) {
-                            if (theBr.Type == BreakValues.Page)
+                            if (theBr.Type != null)
                             {
-                                pageBreakFoundYN = "Yes";
+                                if (theBr.Type == BreakValues.Page)
+                                {
+                                    pageBreakFoundYN = "Yes";
+                                }
                             }
                         }
 
@@ -193,7 +197,8 @@ namespace zFormat.model
                                     //New chapter text starting; heading style ends
                                     pageBreakFoundYN = "No";
                                     //Call special design options (Dropcap and ALLCAPS start run...)
-                                    SetDropCap(body, para, run, bFont);
+                                    //SetDropCap(body, para, run, bFont);
+                                    SetAllCapsFirstWords(body, para, run, bFont);
                                 }
 
                             }
@@ -231,12 +236,12 @@ namespace zFormat.model
                                 if (subParaText.Text == "*" || subParaText.Text == "**" || subParaText.Text == "***" 
                                     || subParaText.Text == "* *" || subParaText.Text == "* * *")
                                 {
-                                    subParaText.Text = "*" + design + "*";
+                                    subParaText.Text = subParaText.Text.Replace("*", design);
                                 }
                                 if (subParaText.Text == "#" || subParaText.Text == "##" || subParaText.Text == "###" 
                                     || subParaText.Text == "# #" || subParaText.Text == "# # #")
                                 {
-                                    subParaText.Text = "#" + design + "#";
+                                    subParaText.Text = subParaText.Text.Replace("#", design);
                                 }
                             }
                         }
@@ -246,9 +251,36 @@ namespace zFormat.model
             }
         }
 
+        // Set ALL Caps for first few words     2in chapter paragraph
+        public static void SetAllCapsFirstWords(Body body, Paragraph para, Run run, String bFont)
+        {
+            var subParaText = para.Descendants<Text>().FirstOrDefault();
+            if (subParaText.Text.Length >= 20)
+            {
+                String newString = "";
+                var paraTextSplit = subParaText.Text.Split(' ');
+                int totalLen = 0;
+                int i = 0;
+                do
+                {
+                    newString = newString + " " + paraTextSplit[i].ToString();
+                    totalLen = totalLen + paraTextSplit[i].Length;
+                    i++;
 
-        // Set Drop Cap for first character in chapter paragraph
-        public static void SetDropCap(Body body, Paragraph para, Run run, String bFont)
+                } while (totalLen < 15);
+                newString = newString.Substring(1);
+                String newUppers = newString.ToUpper();
+                subParaText.Text = subParaText.Text.Replace(newString, newUppers);
+            }
+            else
+            {
+                subParaText.Text.ToUpper();
+            }
+
+        }
+
+            // Set Drop Cap for first character in chapter paragraph
+            public static void SetDropCap(Body body, Paragraph para, Run run, String bFont)
         {
             // Removes the indent from first line in paragraph
             var subParaProp = para.Descendants<ParagraphProperties>().FirstOrDefault();
